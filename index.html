@@ -1,0 +1,1406 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>관산중학교 수학 퍼즐 - 지브리 슬라이딩 퍼즐 (Sliding Puzzle)</title>
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@600;700&family=Noto+Sans+KR:wght@400;500;700;900&family=Noto+Sans+SC:wght@500;700&display=swap" rel="stylesheet">
+  <!-- Canvas Confetti -->
+  <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+
+  <style>
+    body {
+      font-family: 'Noto Sans KR', 'Noto Sans SC', sans-serif;
+      user-select: none;
+      -webkit-user-select: none;
+      touch-action: manipulation;
+    }
+    .font-chakra {
+      font-family: 'Chakra Petch', sans-serif;
+    }
+    /* Responsive Square Board Wrapper */
+    .puzzle-board-wrapper {
+      width: min(92vw, 420px, calc(100vh - 370px));
+      height: min(92vw, 420px, calc(100vh - 370px));
+      min-width: 270px;
+      min-height: 270px;
+    }
+    /* Sliding Tile Transitions */
+    .puzzle-tile {
+      transition: transform 0.16s cubic-bezier(0.2, 0, 0.2, 1), box-shadow 0.16s ease;
+      background-size: var(--board-size) var(--board-size);
+      background-repeat: no-repeat;
+    }
+    .tile-empty {
+      background: rgba(15, 23, 42, 0.85);
+      border: 2px dashed rgba(71, 85, 105, 0.4);
+    }
+    /* Number Badge on Tiles */
+    .tile-badge {
+      text-shadow: 0 1px 3px rgba(0, 0, 0, 0.9), 0 0 6px rgba(0, 0, 0, 0.7);
+    }
+  </style>
+</head>
+<body class="bg-slate-950 text-slate-100 min-h-screen flex flex-col items-center justify-between p-2 sm:p-4 overflow-x-hidden selection:bg-emerald-500 selection:text-slate-950">
+
+  <!-- 학생 정보 로그인/입장 초기 화면 모달 -->
+  <div id="login-modal" class="fixed inset-0 bg-slate-950/95 backdrop-blur-md z-50 flex items-center justify-center p-4">
+    <div class="bg-slate-900 border-2 border-emerald-500/50 rounded-3xl max-w-sm w-full p-6 text-slate-200 shadow-2xl shadow-emerald-500/20 text-center">
+      <div class="inline-flex items-center gap-1.5 bg-emerald-950/80 border border-emerald-500/40 px-3 py-1 rounded-full text-xs font-semibold text-emerald-400 mb-3">
+        <span class="w-2 h-2 rounded-full bg-emerald-400 animate-ping"></span>
+        <span>관산중학교 수학 퍼즐</span>
+      </div>
+      <h2 class="text-2xl font-black text-white tracking-wide mb-1 font-chakra">SLIDING PUZZLE</h2>
+      <p class="text-xs text-slate-400 mb-5">
+        학생 확인을 위해 <span class="text-emerald-400 font-bold">학번</span>과 <span class="text-cyan-400 font-bold">이름</span>을 입력해주세요.
+      </p>
+
+      <form id="student-login-form" onsubmit="handleStudentLogin(event)" class="space-y-3.5 text-left">
+        <div>
+          <label class="block text-xs font-bold text-slate-300 mb-1 flex items-center justify-between">
+            <span>학번 (예: 20315)</span>
+            <span class="text-[10px] text-slate-500 font-normal">Student ID</span>
+          </label>
+          <input type="text" id="input-student-id" required placeholder="5자리 학번 입력" class="w-full px-3.5 py-2.5 rounded-xl bg-slate-950 border border-slate-700 text-white placeholder-slate-600 focus:outline-none focus:border-emerald-400 focus:ring-1 focus:ring-emerald-400 text-sm font-chakra tracking-wider">
+        </div>
+        <div>
+          <label class="block text-xs font-bold text-slate-300 mb-1 flex items-center justify-between">
+            <span>이름</span>
+            <span class="text-[10px] text-slate-500 font-normal">Student Name</span>
+          </label>
+          <input type="text" id="input-student-name" required placeholder="이름 입력" class="w-full px-3.5 py-2.5 rounded-xl bg-slate-950 border border-slate-700 text-white placeholder-slate-600 focus:outline-none focus:border-emerald-400 focus:ring-1 focus:ring-emerald-400 text-sm">
+        </div>
+        <p id="login-error-msg" class="text-xs text-rose-400 text-center font-medium min-h-[16px]"></p>
+        <button type="submit" class="w-full py-3 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 text-slate-950 font-black shadow-lg shadow-emerald-500/30 transition transform active:scale-95 text-sm flex items-center justify-center gap-1.5">
+          <span>퍼즐 시작하기</span>
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M13 7l5 5m0 0l-5 5m5-5H6"/></svg>
+        </button>
+      </form>
+    </div>
+  </div>
+
+  <!-- Top Toolbar: Student Info, Tutorial Modal Button + Multi-language Selectors -->
+  <nav class="w-full max-w-xl flex flex-wrap items-center justify-between gap-2 bg-slate-900/90 border border-slate-800 rounded-2xl px-3 py-2 shadow-lg mb-1">
+    <!-- 1. 학생 정보 & 튜토리얼 버튼 -->
+    <div class="flex items-center gap-2 flex-wrap">
+      <!-- 학생 뱃지 -->
+      <div id="student-badge" class="flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-emerald-950/70 border border-emerald-500/50 text-emerald-300 text-xs font-bold shadow">
+        <svg class="w-3.5 h-3.5 text-emerald-400 shrink-0" fill="currentColor" viewBox="0 0 20 20">
+          <path fill-rule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clip-rule="evenodd"/>
+        </svg>
+        <span id="student-info-display">학번 이름</span>
+        <button onclick="changeStudentInfo()" title="정보 변경" class="text-[10px] ml-0.5 text-emerald-400/80 hover:text-emerald-200 underline">
+          변경
+        </button>
+      </div>
+
+      <!-- 튜토리얼 안내 버튼 -->
+      <button onclick="openTutorialModal()" class="flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-indigo-950/80 hover:bg-indigo-900 border border-indigo-500/50 text-indigo-300 hover:text-white transition shadow active:scale-95 text-xs font-bold shrink-0">
+        <svg class="w-3.5 h-3.5 text-indigo-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"/>
+        </svg>
+        <span>게임 방법 (튜토리얼)</span>
+        <span class="text-[10px] font-normal text-indigo-400 hidden xs:inline" data-i18n="nav_tutorial">Tutorial</span>
+      </button>
+    </div>
+
+    <!-- 2. 다국어 선택 버튼 모음 (항상 상단 나열) -->
+    <div class="flex items-center gap-1 sm:gap-1.5 flex-wrap ml-auto">
+      <button onclick="setLang('ko')" id="lang-ko" class="px-2 py-1 text-xs rounded-lg font-bold transition">한국어</button>
+      <button onclick="setLang('en')" id="lang-en" class="px-2 py-1 text-xs rounded-lg font-bold transition">+ English</button>
+      <button onclick="setLang('zh')" id="lang-zh" class="px-2 py-1 text-xs rounded-lg font-bold transition">+ 中文</button>
+      <button onclick="setLang('ru')" id="lang-ru" class="px-2 py-1 text-xs rounded-lg font-bold transition">+ Русский</button>
+    </div>
+  </nav>
+
+  <!-- Header Section -->
+  <header class="w-full max-w-xl text-center py-1">
+    <div class="inline-flex items-center gap-1.5 bg-slate-900/90 border border-emerald-500/30 px-3 py-0.5 rounded-full text-[11px] sm:text-xs font-medium text-emerald-400 mb-1 shadow-sm">
+      <span class="w-2 h-2 rounded-full bg-emerald-400 animate-ping"></span>
+      <span id="school-title">관산중학교 수학 퍼즐 교실</span>
+    </div>
+    <h1 class="text-2xl sm:text-3xl font-black tracking-tight bg-gradient-to-r from-emerald-300 via-teal-400 to-cyan-400 bg-clip-text text-transparent font-chakra">
+      SLIDING PUZZLE
+    </h1>
+    <div class="text-xs sm:text-sm text-slate-400 flex flex-col items-center justify-center">
+      <div>빈 칸을 이용하여 조각을 밀어 <span class="text-emerald-400 font-bold">지브리 명장면</span>을 완성하세요!</div>
+      <div id="sub-objective" class="text-[11px] sm:text-xs text-slate-500"></div>
+    </div>
+  </header>
+
+  <!-- Main Game Dashboard -->
+  <main class="w-full max-w-md flex flex-col items-center gap-2">
+
+    <!-- 3-Column Difficulty Cards with 1~3 Stage Indicators Below Each Button -->
+    <div class="w-full grid grid-cols-3 gap-1.5 sm:gap-2">
+      
+      <!-- 초급 (4x4) Column -->
+      <div id="diff-card-easy" class="flex flex-col items-center p-1.5 sm:p-2 bg-slate-900/90 rounded-2xl border-2 border-emerald-500/80 shadow-lg transition duration-200">
+        <button onclick="changeDifficulty('easy')" id="btn-diff-easy" class="w-full py-1.5 px-0.5 text-xs sm:text-sm font-bold rounded-xl transition duration-150 flex flex-col items-center justify-center bg-emerald-500 text-slate-950 shadow-md">
+          <span>초급 (3×3)</span>
+          <span class="text-[9px] sm:text-[10px] font-normal opacity-90" data-i18n="diff_easy_sub">Easy (3×3)</span>
+        </button>
+        <!-- Stage dots 1~3 for Easy -->
+        <div id="stage-dots-easy" class="w-full flex items-center justify-between gap-1 mt-1.5 px-1">
+          <!-- Rendered dynamically -->
+        </div>
+      </div>
+
+      <!-- 중급 (5x5) Column -->
+      <div id="diff-card-medium" class="flex flex-col items-center p-1.5 sm:p-2 bg-slate-900/90 rounded-2xl border-2 border-slate-800 shadow-lg transition duration-200">
+        <button onclick="changeDifficulty('medium')" id="btn-diff-medium" class="w-full py-1.5 px-0.5 text-xs sm:text-sm font-bold rounded-xl transition duration-150 flex flex-col items-center justify-center text-slate-300 hover:text-white hover:bg-slate-800/80">
+          <span>중급 (4×4)</span>
+          <span class="text-[9px] sm:text-[10px] font-normal opacity-75" data-i18n="diff_med_sub">Medium (4×4)</span>
+        </button>
+        <!-- Stage dots 1~3 for Medium -->
+        <div id="stage-dots-medium" class="w-full flex items-center justify-between gap-1 mt-1.5 px-1">
+          <!-- Rendered dynamically -->
+        </div>
+      </div>
+
+      <!-- 고급 (6x6) Column -->
+      <div id="diff-card-hard" class="flex flex-col items-center p-1.5 sm:p-2 bg-slate-900/90 rounded-2xl border-2 border-slate-800 shadow-lg transition duration-200">
+        <button onclick="changeDifficulty('hard')" id="btn-diff-hard" class="w-full py-1.5 px-0.5 text-xs sm:text-sm font-bold rounded-xl transition duration-150 flex flex-col items-center justify-center text-slate-300 hover:text-white hover:bg-slate-800/80">
+          <span>고급 (5×5)</span>
+          <span class="text-[9px] sm:text-[10px] font-normal opacity-75" data-i18n="diff_hard_sub">Hard (5×5)</span>
+        </button>
+        <!-- Stage dots 1~3 for Hard -->
+        <div id="stage-dots-hard" class="w-full flex items-center justify-between gap-1 mt-1.5 px-1">
+          <!-- Rendered dynamically -->
+        </div>
+      </div>
+
+    </div>
+
+    <!-- Current Movie Title Banner & Status Indicators -->
+    <div class="w-full bg-slate-900/80 border border-slate-800 rounded-2xl px-3 py-1.5 flex items-center justify-between">
+      <div class="flex items-center gap-1.5">
+        <span class="text-base">🎬</span>
+        <div>
+          <div id="movie-title-ko" class="text-xs sm:text-sm font-bold text-emerald-400">이웃집 토토로</div>
+          <div id="movie-title-sub" class="text-[10px] text-slate-400 font-medium">My Neighbor Totoro</div>
+        </div>
+      </div>
+      <div class="flex items-center gap-3 font-chakra">
+        <div class="text-right">
+          <div class="text-[9px] text-slate-400" data-i18n="stat_moves">Moves</div>
+          <div id="stat-moves" class="text-base font-bold text-amber-400">0</div>
+        </div>
+        <div class="text-right">
+          <div class="text-[9px] text-slate-400" data-i18n="stat_time">Time</div>
+          <div id="stat-time" class="text-base font-bold text-cyan-400">00:00</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Puzzle Board & Right Side Original Preview Layout -->
+    <div class="w-full flex flex-col sm:flex-row items-center justify-center gap-3 sm:gap-4">
+      
+      <!-- Puzzle Board Canvas Container -->
+      <div class="relative puzzle-board-wrapper p-2 bg-slate-900/95 rounded-3xl border-2 border-slate-800 shadow-2xl flex items-center justify-center shrink-0">
+        <div id="puzzle-grid" class="w-full h-full grid gap-1 relative select-none">
+          <!-- Cells generated via JavaScript -->
+        </div>
+
+        <!-- Victory Overlay Card -->
+        <div id="win-overlay" class="absolute inset-0 bg-slate-950/95 rounded-3xl backdrop-blur-md flex flex-col items-center justify-center p-4 text-center opacity-0 pointer-events-none transition duration-300 transform scale-95 z-30">
+          <div class="w-14 h-14 rounded-full bg-emerald-500/20 text-emerald-400 flex items-center justify-center mb-2 animate-bounce">
+            <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg>
+          </div>
+          <h2 id="win-title" class="text-xl sm:text-2xl font-black text-white">스테이지 완성!</h2>
+          <div class="text-xs text-emerald-300 mb-2 font-medium" data-i18n="win_congrats">Stage Completed! Brilliant!</div>
+          <p class="text-xs sm:text-sm text-slate-300 mb-4" id="win-summary">총 24회 이동 / 00:45 소요</p>
+          <button onclick="handleNextStageClick()" id="btn-next-stage" class="px-6 py-2.5 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 text-slate-950 font-black shadow-lg shadow-emerald-500/30 transition transform active:scale-95 flex flex-col items-center">
+            <span id="next-stage-title" class="text-xs sm:text-sm">다음 스테이지</span>
+            <span class="text-[10px] font-normal" data-i18n="btn_next_level">Next Stage</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- 게임 화면 오른쪽 상시 원본 이미지 패널 (기존 대비 2배 확대) -->
+      <div class="flex flex-row sm:flex-col items-center gap-2.5 p-2.5 sm:p-3 bg-slate-900/90 rounded-2xl border border-slate-800 shadow-xl self-stretch sm:self-center sm:w-52 shrink-0">
+        <div class="relative w-32 h-32 sm:w-48 sm:h-48 rounded-xl overflow-hidden border-2 border-emerald-500/50 shadow-inner group">
+          <img id="side-preview-img" src="" alt="Original Preview" class="w-full h-full object-cover">
+          <div class="absolute inset-0 bg-emerald-500/10 pointer-events-none"></div>
+        </div>
+        <div class="text-left sm:text-center w-full">
+          <div class="text-xs sm:text-sm font-bold text-emerald-400 flex items-center sm:justify-center gap-1">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+            <span>원본 정답</span>
+          </div>
+          <div class="text-[10px] sm:text-xs text-slate-400" data-i18n="txt_target_image">Target Image</div>
+          <label for="custom-img-upload" class="cursor-pointer mt-1.5 inline-flex items-center justify-center text-[10px] text-emerald-300 bg-emerald-950/80 hover:bg-emerald-900 border border-emerald-500/40 px-2 py-1 rounded-lg transition">
+            <span>📷 사진변경</span>
+            <input type="file" id="custom-img-upload" accept="image/*" class="hidden" onchange="handleCustomImageUpload(event)">
+          </label>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- Action Tools (초급: 숫자 토글 + 다시 섞기 / 중·고급: 다시 섞기 단독) -->
+    <div id="action-tools-container" class="grid grid-cols-2 gap-2 w-full">
+      <!-- 1. 숫자 가이드 토글 버튼 (초급 전용) -->
+      <button onclick="toggleNumbers()" id="btn-toggle-num" class="flex flex-col items-center justify-center py-2 px-1 rounded-xl bg-cyan-950/60 hover:bg-cyan-900/60 border border-cyan-700/60 text-cyan-300 transition shadow active:scale-95">
+        <div class="flex items-center gap-1">
+          <svg class="w-4 h-4 text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 20l4-16m2 16l4-16M6 9h14M4 15h14"/></svg>
+          <span id="txt-num-toggle" class="text-xs font-bold">숫자 끄기</span>
+        </div>
+        <span class="text-[9px] text-cyan-400" data-i18n="btn_numbers">Numbers ON</span>
+      </button>
+
+      <!-- 2. 다시 시작 / 섞기 버튼 -->
+      <button onclick="restartStage()" id="btn-reshuffle" class="flex flex-col items-center justify-center py-2 px-1 rounded-xl bg-rose-950/60 hover:bg-rose-900/60 border border-rose-700/60 text-rose-300 transition shadow active:scale-95">
+        <div class="flex items-center gap-1">
+          <svg class="w-4 h-4 text-rose-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+          <span class="text-xs font-bold">다시 섞기</span>
+        </div>
+        <span class="text-[9px] text-rose-400" data-i18n="btn_reshuffle">Reshuffle</span>
+      </button>
+    </div>
+
+    <!-- On-Screen Virtual D-Pad for Mobile & Tablet -->
+    <div class="w-full flex flex-col items-center pt-1 pb-1">
+      <div class="text-[10px] text-slate-500 mb-1">조각 터치(클릭) 또는 방향키(WASD) 조작 지원</div>
+      <div class="grid grid-cols-3 gap-1.5 w-44">
+        <div></div>
+        <button onclick="handleKeyMove('up')" class="h-10 rounded-xl bg-slate-800/90 active:bg-emerald-500 active:text-slate-950 text-slate-200 border border-slate-700 font-bold flex items-center justify-center shadow transition active:scale-90">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 15l7-7 7 7"/></svg>
+        </button>
+        <div></div>
+        <button onclick="handleKeyMove('left')" class="h-10 rounded-xl bg-slate-800/90 active:bg-emerald-500 active:text-slate-950 text-slate-200 border border-slate-700 font-bold flex items-center justify-center shadow transition active:scale-90">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M15 19l-7-7 7-7"/></svg>
+        </button>
+        <button onclick="handleKeyMove('down')" class="h-10 rounded-xl bg-slate-800/90 active:bg-emerald-500 active:text-slate-950 text-slate-200 border border-slate-700 font-bold flex items-center justify-center shadow transition active:scale-90">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M19 9l-7 7-7-7"/></svg>
+        </button>
+        <button onclick="handleKeyMove('right')" class="h-10 rounded-xl bg-slate-800/90 active:bg-emerald-500 active:text-slate-950 text-slate-200 border border-slate-700 font-bold flex items-center justify-center shadow transition active:scale-90">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M9 5l7 7-7 7"/></svg>
+        </button>
+      </div>
+    </div>
+
+  </main>
+
+  <!-- Tutorial / How to Play Modal (게임 방법 및 튜토리얼) -->
+  <div id="tutorial-modal" class="fixed inset-0 bg-slate-950/85 backdrop-blur-sm z-50 flex items-center justify-center p-4 opacity-0 pointer-events-none transition duration-200">
+    <div class="bg-slate-900 border border-slate-700 rounded-3xl max-w-lg w-full p-6 text-slate-200 shadow-2xl relative max-h-[90vh] overflow-y-auto">
+      <button onclick="closeTutorialModal()" class="absolute top-4 right-4 p-2 rounded-xl text-slate-400 hover:text-white hover:bg-slate-800 transition">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+      </button>
+
+      <div class="flex items-center gap-2 mb-4">
+        <div class="w-10 h-10 rounded-2xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center font-bold text-2xl">🧩</div>
+        <div>
+          <h3 class="text-xl font-bold text-white leading-tight">지브리 슬라이딩 퍼즐 게임 방법</h3>
+          <p class="text-xs text-emerald-300" data-i18n="modal_subtitle">Rules & Mathematical Strategies</p>
+        </div>
+      </div>
+
+      <div class="space-y-3.5 text-sm">
+        <!-- 1. 목표 -->
+        <div class="bg-slate-800/60 p-3.5 rounded-2xl border border-slate-700/60">
+          <div class="font-bold text-emerald-400 flex items-center justify-between">
+            <span>1. 게임 목표</span>
+            <span class="text-xs font-normal text-emerald-300/80" data-i18n="tut_goal_title">Goal</span>
+          </div>
+          <p class="text-xs sm:text-sm mt-1.5 text-slate-200 leading-relaxed">
+            비어 있는 한 칸(오른쪽 아래 빈칸)을 활용해 타일들을 미끄러뜨려, 뒤섞인 <strong class="text-emerald-300">지브리 애니메이션 명장면</strong>과 <strong class="text-cyan-300">1번부터 순서대로 이어지는 숫자</strong>를 원상태로 맞추면 클리어됩니다!
+          </p>
+          <p class="text-xs text-slate-400 mt-1" data-i18n="tut_goal_desc">
+            Slide the tiles using the empty space to reconstruct the complete Ghibli poster image in numerical order.
+          </p>
+        </div>
+
+        <!-- 2. 기본 조작 규칙 -->
+        <div class="bg-slate-800/60 p-3.5 rounded-2xl border border-slate-700/60">
+          <div class="font-bold text-cyan-400 flex items-center justify-between">
+            <span>2. 이동 조작 규칙</span>
+            <span class="text-xs font-normal text-cyan-300/80" data-i18n="tut_rules_title">Movement Rules</span>
+          </div>
+          <ul class="list-disc list-inside space-y-1.5 mt-2 text-xs sm:text-sm text-slate-300 leading-relaxed">
+            <li>
+              <strong>빈 칸에 인접한 조각만 이동:</strong> 빈 칸의 상·하·좌·우에 위치한 조각을 터치(클릭)하거나 키보드 방향키를 누르면 빈 자리로 미끄러집니다.
+              <div class="text-xs text-slate-400 ml-4" data-i18n="tut_rule_adj">Only tiles directly adjacent to the empty spot can slide.</div>
+            </li>
+            <li>
+              <strong>반드시 풀리는 퍼즐 보장:</strong> 본 게임의 모든 문제는 무작위 배치가 아닌 수학적으로 100% 풀이가 가능한(Solvable) 합법적 치환으로만 출제됩니다.
+              <div class="text-xs text-slate-400 ml-4" data-i18n="tut_rule_solvable">Every puzzle is mathematically verified to be 100% solvable.</div>
+            </li>
+          </ul>
+        </div>
+
+        <!-- 3. 퍼즐 해결 공식 & 수학적 팁 -->
+        <div class="bg-slate-800/60 p-3.5 rounded-2xl border border-slate-700/60">
+          <div class="font-bold text-amber-400 flex items-center justify-between">
+            <span>3. 수학적 공략 팁 (테두리 우선 원칙)</span>
+            <span class="text-xs font-normal text-amber-300/80" data-i18n="tut_strat_title">Solving Strategy</span>
+          </div>
+          <ul class="list-disc list-inside space-y-1.5 mt-2 text-xs sm:text-sm text-slate-300 leading-relaxed">
+            <li>
+              <strong>위쪽 행부터 차례대로 맞추기:</strong> 1행(1, 2, 3...)을 먼저 완성한 뒤에는 1행을 건드리지 않고, 2행 ➔ 3행 순서로 좁혀가면 훨씬 쉽게 풀립니다.
+              <div class="text-xs text-slate-400 ml-4" data-i18n="tut_strat_row">Solve row by row from top to bottom, locking finished rows in place.</div>
+            </li>
+            <li>
+              <strong>숫자 가이드 & 오른쪽 원본 참조:</strong> [숫자 끄기/켜기] 버튼으로 타일 번호를 확인할 수 있으며, 오른쪽에 표시된 완성 원본 그림을 항상 참조하며 맞출 수 있습니다.
+              <div class="text-xs text-slate-400 ml-4" data-i18n="tut_strat_peek">Refer to the target image on the right and use numbers to guide yourself.</div>
+            </li>
+          </ul>
+        </div>
+      </div>
+
+      <button onclick="closeTutorialModal()" class="w-full mt-5 py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black transition shadow-lg shadow-emerald-500/30 flex flex-col items-center">
+        <span>규칙 확인 완료! 퍼즐 시작</span>
+        <span class="text-[11px] font-normal" data-i18n="modal_close_btn">Understood! Start Playing</span>
+      </button>
+    </div>
+  </div>
+
+  <script>
+    // 1. 다국어 사전 (Translations)
+    const translations = {
+      en: {
+        school: "Gwansan Middle School Math Puzzle Club",
+        subObjective: "Slide tiles into the empty space to restore the Ghibli masterpiece!",
+        nav_tutorial: "Tutorial",
+        diff_easy_sub: "Easy (3×3)",
+        diff_med_sub: "Medium (4×4)",
+        diff_hard_sub: "Hard (5×5)",
+        stat_moves: "Moves",
+        stat_time: "Time",
+        txt_target_image: "Target Image",
+        btn_numbers: "Numbers ON/OFF",
+        btn_reshuffle: "Reshuffle",
+        btn_next_level: "Next Stage",
+        win_congrats: "Stage Completed! Brilliant work!",
+        modal_subtitle: "Rules & Mathematical Strategies",
+        tut_goal_title: "Game Goal",
+        tut_goal_desc: "Slide tiles using the empty space to reconstruct the complete Ghibli poster image in numerical order.",
+        tut_rules_title: "Movement Rules",
+        tut_rule_adj: "Only tiles directly adjacent to the empty spot can slide into it.",
+        tut_rule_solvable: "Every puzzle is mathematically verified to be 100% solvable.",
+        tut_strat_title: "Solving Strategy",
+        tut_strat_row: "Solve row by row from top to bottom, locking finished rows in place.",
+        tut_strat_peek: "Refer to the target image on the right and use numbers to guide yourself.",
+        modal_close_btn: "Understood! Start Playing",
+        win_summary_fmt: (m, t) => `Total ${m} moves / ${t} taken`
+      },
+      zh: {
+        school: "冠山中学校 数学俱乐部",
+        subObjective: "利用空位滑动拼图，还原吉卜力经典动画画面！",
+        nav_tutorial: "游戏教程",
+        diff_easy_sub: "初级 (3×3)",
+        diff_med_sub: "中级 (4×4)",
+        diff_hard_sub: "高级 (5×5)",
+        stat_moves: "移动步数",
+        stat_time: "用时",
+        stat_best: "最佳",
+        btn_numbers: "数字开关",
+        btn_reshuffle: "重新打乱",
+        btn_next_level: "下一关",
+        win_congrats: "恭喜过关！太棒了！",
+        modal_subtitle: "游戏玩法与还原技巧",
+        tut_goal_title: "游戏目标",
+        tut_goal_desc: "利用右下角留空的格子滑动图片，按数字顺序还原吉卜力动画海报。",
+        tut_rules_title: "移动规则",
+        tut_rule_adj: "只有与空格相邻（上下左右）的方块才可以滑动。",
+        tut_rule_solvable: "每个关卡均经数学验证，保证100%必定有解。",
+        tut_strat_title: "还原技巧",
+        tut_strat_row: "采用由上至下的‘逐行还原法’，拼好一行后固定不再变动。",
+        tut_strat_peek: "参考右侧原图并善用‘数字辅助’可大幅降低难度。",
+        modal_close_btn: "我明白了！开始游戏",
+        win_summary_fmt: (m, t) => `共 ${m} 步 / 耗时 ${t}`
+      },
+      ru: {
+        school: "Средняя школа Квансан - Математический клуб",
+        subObjective: "Передвигайте плитки в пустое место, чтобы собрать шедевр Гибли!",
+        nav_tutorial: "Обучение",
+        diff_easy_sub: "Легко (3×3)",
+        diff_med_sub: "Средне (4×4)",
+        diff_hard_sub: "Сложно (5×5)",
+        stat_moves: "Ходы",
+        stat_time: "Время",
+        txt_target_image: "Оригинал",
+        btn_numbers: "Номера вкл/выкл",
+        btn_reshuffle: "Перемешать",
+        btn_next_level: "След. уровень",
+        win_congrats: "Уровень пройден! Поздравляем!",
+        modal_subtitle: "Правила и математические советы",
+        tut_goal_title: "Цель игры",
+        tut_goal_desc: "Передвигайте плитки, используя пустое поле, чтобы собрать плакат Гибли по порядку номеров.",
+        tut_rules_title: "Правила перемещения",
+        tut_rule_adj: "Перемещать можно только плитки, соседние с пустой ячейкой.",
+        tut_rule_solvable: "Каждая головоломка математически проверена и 100% разрешима.",
+        tut_strat_title: "Стратегия сборки",
+        tut_strat_row: "Собирайте ряды по очереди сверху вниз.",
+        tut_strat_peek: "Ориентируйтесь на образец справа и подсказки номеров.",
+        modal_close_btn: "Понятно! Начать игру",
+        win_summary_fmt: (m, t) => `Всего ходов: ${m} / Время: ${t}`
+      }
+    };
+
+    // 2. 지브리 애니메이션 포스터 및 스테이지 정보 정의 (초급 3, 중급 3, 고급 3 = 총 9개 스테이지)
+    const GHIBLI_STAGES = {
+      easy: [
+        {
+          titleKo: "원피스 - 밀짚모자 일당 (One Piece)",
+          titleSub: "One Piece Dome Tour",
+          img: "https://lh3.googleusercontent.com/d/1URAWvd6_4GkwRRdvlQzNp2iHPivbe8gq",
+          size: 3
+        },
+        {
+          titleKo: "초급 2번 스테이지",
+          titleSub: "Easy Stage 2",
+          img: "https://lh3.googleusercontent.com/d/16FXC_ymTtOZC8wYsuOPn_weZjup7aic7",
+          size: 3
+        },
+        {
+          titleKo: "초급 3번 스테이지",
+          titleSub: "Easy Stage 3",
+          img: "https://lh3.googleusercontent.com/d/1T0NIXhat22Cu9FbaBNIzF0ssKI4r4qHV",
+          size: 3
+        }
+      ],
+      medium: [
+        {
+          titleKo: "중급 1번 스테이지",
+          titleSub: "Medium Stage 1",
+          img: "https://lh3.googleusercontent.com/d/1hYYmMsOh_6Ds5LtwKkbGM462hN8kRQws",
+          size: 4
+        },
+        {
+          titleKo: "중급 2번 스테이지",
+          titleSub: "Medium Stage 2",
+          img: "https://lh3.googleusercontent.com/d/11k39t04vb8fwNdZcHDFYTmlNkmgs6Pq4",
+          size: 4
+        },
+        {
+          titleKo: "중급 3번 스테이지",
+          titleSub: "Medium Stage 3",
+          img: "https://lh3.googleusercontent.com/d/1lNJiTeQpGWWuUYfli3a9PRyfGsQ9bJnY",
+          size: 4
+        }
+      ],
+      hard: [
+        {
+          titleKo: "고급 1번 스테이지",
+          titleSub: "Hard Stage 1",
+          img: "https://lh3.googleusercontent.com/d/17Mk2Q4mEtr9pkXT7KpkAZAYkLg_IS7SH",
+          size: 5
+        },
+        {
+          titleKo: "고급 2번 스테이지",
+          titleSub: "Hard Stage 2",
+          img: "https://lh3.googleusercontent.com/d/1t9ifF1rnQfDsxNb5cQWhfAnLJj9-7R2v",
+          size: 5
+        },
+        {
+          titleKo: "고급 3번 스테이지",
+          titleSub: "Hard Stage 3",
+          img: "https://lh3.googleusercontent.com/d/1URNgqlpePdrvUAvDhQguIHi_w4VGGf9Z",
+          size: 5
+        }
+      ]
+    };
+
+    // 3. 게임 상태 변수
+    let currentLang = 'en';
+    let currentDifficulty = 'easy'; // 'easy' | 'medium' | 'hard'
+    let currentStageIndex = 0; // 0, 1, 2
+    let boardSize = 3; // 3, 4, 5
+    let tiles = []; // 1차원 배열: 각 인덱스(0 ~ size*size - 1)에 들어있는 원래 타일 ID (0 ~ size*size - 1, 마지막은 빈칸)
+    let emptyIndex = 0;
+    let moves = 0;
+    let timer = 0;
+    let timerInterval = null;
+    let isGameWon = false;
+    let showNumbers = true;
+
+    // 학생 정보
+    let studentInfo = { id: '', name: '' };
+
+    // 첨부 이미지: 원피스(ONE PIECE) 밀짚모자 일당 포스터 정밀 렌더러 (Data URL 생성)
+    function createOnePiecePoster() {
+      const c = document.createElement('canvas');
+      c.width = 600;
+      c.height = 800;
+      const ctx = c.getContext('2d');
+
+      // 1. 역동적인 푸른 하늘 & 방사형 황금 휠 배경
+      const skyGrad = ctx.createLinearGradient(0, 0, 0, 450);
+      skyGrad.addColorStop(0, '#1e3a8a');
+      skyGrad.addColorStop(0.5, '#3b82f6');
+      skyGrad.addColorStop(1, '#93c5fd');
+      ctx.fillStyle = skyGrad;
+      ctx.fillRect(0, 0, 600, 800);
+
+      // 황금 나침반 키(Wheel) / 엠블럼 원형 패턴
+      ctx.save();
+      ctx.translate(300, 400);
+      ctx.strokeStyle = 'rgba(234, 179, 8, 0.45)';
+      ctx.lineWidth = 14;
+      ctx.beginPath();
+      ctx.arc(0, 0, 270, 0, Math.PI * 2);
+      ctx.stroke();
+
+      ctx.strokeStyle = 'rgba(202, 138, 4, 0.35)';
+      ctx.lineWidth = 6;
+      for (let i = 0; i < 16; i++) {
+        ctx.rotate((Math.PI * 2) / 16);
+        ctx.beginPath();
+        ctx.moveTo(0, 0);
+        ctx.lineTo(270, 0);
+        ctx.stroke();
+      }
+      ctx.restore();
+
+      // 빛나는 림 라이트 스파크
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.7)';
+      [[80, 260], [530, 290], [520, 560], [120, 680]].forEach(([sx, sy]) => {
+        ctx.beginPath();
+        ctx.arc(sx, sy, 5, 0, Math.PI * 2);
+        ctx.fill();
+      });
+
+      // 2. 상단 멤버들 (브룩, 우솝, 상디, 프랑키)
+      // 좌상단 브룩 (아프로 머리 & 해골)
+      ctx.fillStyle = '#0f172a';
+      ctx.beginPath();
+      ctx.arc(110, 80, 52, 0, Math.PI * 2);
+      ctx.fill();
+      // 해골 얼굴
+      ctx.fillStyle = '#f8fafc';
+      ctx.beginPath();
+      ctx.ellipse(110, 75, 22, 28, 0, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = '#0f172a';
+      ctx.beginPath();
+      ctx.arc(102, 70, 5, 0, Math.PI * 2);
+      ctx.arc(118, 70, 5, 0, Math.PI * 2);
+      ctx.fill();
+
+      // 우솝 (고글 & 크게 벌린 입)
+      ctx.fillStyle = '#d97706';
+      ctx.beginPath();
+      ctx.arc(320, 110, 38, 0, Math.PI * 2);
+      ctx.fill();
+      // 고글
+      ctx.fillStyle = '#ca8a04';
+      ctx.fillRect(295, 85, 50, 14);
+      // 크게 환호하는 입
+      ctx.fillStyle = '#881337';
+      ctx.beginPath();
+      ctx.ellipse(325, 125, 18, 22, 0, 0, Math.PI * 2);
+      ctx.fill();
+
+      // 상디 (금발, 수트 & 담배)
+      ctx.fillStyle = '#fde047';
+      ctx.beginPath();
+      ctx.ellipse(600 * 0.65, 80, 42, 46, 0.2, 0, Math.PI * 2);
+      ctx.fill();
+      // 블랙 정장 코트
+      ctx.fillStyle = '#090d16';
+      ctx.beginPath();
+      ctx.moveTo(330, 120);
+      ctx.lineTo(440, 80);
+      ctx.lineTo(470, 200);
+      ctx.lineTo(340, 220);
+      ctx.closePath();
+      ctx.fill();
+
+      // 우측 프랑키 (청록색 퐁파두르 머리 & 선글라스 & 하와이안 셔츠)
+      ctx.fillStyle = '#06b6d4';
+      ctx.beginPath();
+      ctx.ellipse(500, 140, 36, 26, -0.4, 0, Math.PI * 2);
+      ctx.fill();
+      // 붉은 하와이안 셔츠
+      ctx.fillStyle = '#dc2626';
+      ctx.beginPath();
+      ctx.moveTo(450, 120);
+      ctx.lineTo(580, 140);
+      ctx.lineTo(540, 260);
+      ctx.lineTo(440, 220);
+      ctx.closePath();
+      ctx.fill();
+
+      // 3. 중단 좌우 멤버 (나미, 로빈, 조로)
+      // 좌측 나미 (주황색 머리 & 블루 탱크탑)
+      ctx.fillStyle = '#f97316';
+      ctx.beginPath();
+      ctx.arc(190, 420, 52, 0, Math.PI * 2);
+      ctx.fill();
+      // 피부 & 밝은 미소
+      ctx.fillStyle = '#fed7aa';
+      ctx.beginPath();
+      ctx.arc(195, 430, 32, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = '#1e3a8a';
+      ctx.beginPath();
+      ctx.roundRect(140, 470, 85, 90, 18);
+      ctx.fill();
+
+      // 우측 니코 로빈 (검은 긴 머리 & 보라색 상의)
+      ctx.fillStyle = '#0f172a';
+      ctx.beginPath();
+      ctx.ellipse(470, 500, 36, 68, 0, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = '#fed7aa';
+      ctx.beginPath();
+      ctx.arc(465, 480, 26, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = '#581c87';
+      ctx.beginPath();
+      ctx.roundRect(435, 510, 60, 80, 14);
+      ctx.fill();
+
+      // 우하단 롤로노아 조로 (초록 머리 & 하얀 티셔츠 & 3도류)
+      ctx.fillStyle = '#22c55e';
+      ctx.beginPath();
+      ctx.arc(520, 620, 38, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = '#fed7aa';
+      ctx.beginPath();
+      ctx.arc(520, 635, 26, 0, Math.PI * 2);
+      ctx.fill();
+      // 흰 티셔츠 & 복대
+      ctx.fillStyle = '#f1f5f9';
+      ctx.beginPath();
+      ctx.roundRect(470, 660, 95, 120, 16);
+      ctx.fill();
+      ctx.fillStyle = '#15803d';
+      ctx.fillRect(470, 740, 95, 50);
+
+      // 4. 중앙 주인공 몽키 D. 루피 (밀짚모자, 뻗은 주먹, 붉은 조끼, 환한 웃음)
+      // 뻗은 주먹 (역동적 원근감)
+      ctx.save();
+      ctx.fillStyle = '#fed7aa';
+      ctx.strokeStyle = '#9a3412';
+      ctx.lineWidth = 4;
+      ctx.beginPath();
+      ctx.roundRect(100, 160, 110, 130, 28);
+      ctx.fill();
+      ctx.stroke();
+      // 주먹 손가락 마디
+      for (let i = 0; i < 4; i++) {
+        ctx.beginPath();
+        ctx.arc(130 + i * 20, 190, 12, 0, Math.PI);
+        ctx.stroke();
+      }
+      ctx.restore();
+
+      // 루피 머리 & 노란 밀짚모자
+      ctx.fillStyle = '#fde047';
+      ctx.beginPath();
+      ctx.ellipse(335, 330, 85, 45, 0, 0, Math.PI * 2);
+      ctx.fill();
+      // 모자의 붉은 리본
+      ctx.fillStyle = '#dc2626';
+      ctx.fillRect(265, 318, 140, 16);
+      // 검은 머리
+      ctx.fillStyle = '#0f172a';
+      ctx.beginPath();
+      ctx.ellipse(335, 355, 62, 55, 0, 0, Math.PI * 2);
+      ctx.fill();
+      // 얼굴
+      ctx.fillStyle = '#fed7aa';
+      ctx.beginPath();
+      ctx.ellipse(335, 370, 48, 48, 0, 0, Math.PI * 2);
+      ctx.fill();
+      // 눈 2개
+      ctx.fillStyle = '#0f172a';
+      ctx.beginPath();
+      ctx.arc(315, 365, 7, 0, Math.PI * 2);
+      ctx.arc(360, 365, 7, 0, Math.PI * 2);
+      ctx.fill();
+      // 눈 밑 흉터
+      ctx.strokeStyle = '#991b1b';
+      ctx.lineWidth = 2.5;
+      ctx.beginPath();
+      ctx.moveTo(308, 380);
+      ctx.lineTo(322, 380);
+      ctx.stroke();
+      // 크게 벌린 반달 입 & 하얀 치아
+      ctx.fillStyle = '#881337';
+      ctx.beginPath();
+      ctx.arc(335, 395, 26, 0.1, Math.PI - 0.1);
+      ctx.fill();
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(315, 395, 40, 9);
+
+      // 루피 붉은 조끼 & 노란 단추
+      ctx.fillStyle = '#ef4444';
+      ctx.beginPath();
+      ctx.moveTo(270, 435);
+      ctx.lineTo(400, 435);
+      ctx.lineTo(390, 590);
+      ctx.lineTo(275, 590);
+      ctx.closePath();
+      ctx.fill();
+      // 금빛 단추
+      ctx.fillStyle = '#facc15';
+      ctx.beginPath();
+      ctx.arc(325, 470, 6, 0, Math.PI * 2);
+      ctx.arc(322, 515, 6, 0, Math.PI * 2);
+      ctx.arc(320, 560, 6, 0, Math.PI * 2);
+      ctx.fill();
+
+      // 파란 반바지
+      ctx.fillStyle = '#3b82f6';
+      ctx.fillRect(270, 590, 125, 70);
+
+      // 5. 좌하단 토니토니 쵸파 (분홍색 모자 & 파란 코 & 발굽)
+      ctx.save();
+      ctx.translate(125, 675);
+      // 분홍 X 모자
+      ctx.fillStyle = '#f43f5e';
+      ctx.beginPath();
+      ctx.arc(0, 0, 68, 0, Math.PI * 2);
+      ctx.fill();
+      // 흰색 X 표식
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(-8, -35, 16, 50);
+      ctx.fillRect(-25, -18, 50, 16);
+      // 순록 뿔
+      ctx.fillStyle = '#78350f';
+      ctx.fillRect(-70, -40, 20, 14);
+      ctx.fillRect(50, -40, 20, 14);
+      // 얼굴 & 파란 코
+      ctx.fillStyle = '#b45309';
+      ctx.beginPath();
+      ctx.ellipse(0, 30, 42, 36, 0, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.fillStyle = '#38bdf8';
+      ctx.beginPath();
+      ctx.arc(0, 25, 7, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
+
+      // 6. 하단 공식 원피스 로고 타이틀 (ONE PIECE DOME TOUR)
+      ctx.save();
+      ctx.translate(330, 715);
+      // 파란 지구본 모양 백그라운드
+      ctx.fillStyle = '#1d4ed8';
+      ctx.beginPath();
+      ctx.arc(0, 0, 52, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.strokeStyle = '#93c5fd';
+      ctx.lineWidth = 2.5;
+      ctx.stroke();
+
+      // ONE PIECE 레터링
+      ctx.fillStyle = '#facc15';
+      ctx.font = '900 36px "Chakra Petch", Impact, sans-serif';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.strokeStyle = '#0f172a';
+      ctx.lineWidth = 6;
+      ctx.strokeText('ONE PIECE', 0, 5);
+      ctx.fillText('ONE PIECE', 0, 5);
+
+      // DOME TOUR 서브타이틀
+      ctx.fillStyle = '#ffffff';
+      ctx.font = 'bold 20px "Chakra Petch", sans-serif';
+      ctx.lineWidth = 4;
+      ctx.strokeText('DOME TOUR', 0, 38);
+      ctx.fillText('DOME TOUR', 0, 38);
+      ctx.restore();
+
+      return c.toDataURL('image/png');
+    }
+
+    // 커스텀 이미지 업로드 지원
+    function handleCustomImageUpload(event) {
+      const file = event.target.files[0];
+      if (!file) return;
+
+      const reader = new FileReader();
+      reader.onload = function(e) {
+        const dataUrl = e.target.result;
+        GHIBLI_STAGES[currentDifficulty][currentStageIndex].img = dataUrl;
+        
+        const sideImg = document.getElementById('side-preview-img');
+        if (sideImg) sideImg.src = dataUrl;
+
+        renderBoard();
+      };
+      reader.readAsDataURL(file);
+    }
+
+    // 오디오 합성기 (Web Audio API)
+    const AudioContext = window.AudioContext || window.webkitAudioContext;
+    let audioCtx = null;
+
+    function initAudio() {
+      if (!audioCtx) audioCtx = new AudioContext();
+      if (audioCtx.state === 'suspended') audioCtx.resume();
+    }
+
+    function playSound(type) {
+      try {
+        initAudio();
+        if (!audioCtx) return;
+        const now = audioCtx.currentTime;
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+
+        if (type === 'slide') {
+          osc.type = 'sine';
+          osc.frequency.setValueAtTime(320, now);
+          osc.frequency.exponentialRampToValueAtTime(540, now + 0.06);
+          gain.gain.setValueAtTime(0.15, now);
+          gain.gain.exponentialRampToValueAtTime(0.01, now + 0.06);
+          osc.start(now);
+          osc.stop(now + 0.06);
+        } else if (type === 'win') {
+          const notes = [523.25, 659.25, 783.99, 1046.50];
+          notes.forEach((freq, idx) => {
+            const nOsc = audioCtx.createOscillator();
+            const nGain = audioCtx.createGain();
+            nOsc.type = 'triangle';
+            nOsc.frequency.setValueAtTime(freq, now + idx * 0.09);
+            nGain.gain.setValueAtTime(0.2, now + idx * 0.09);
+            nGain.gain.exponentialRampToValueAtTime(0.001, now + idx * 0.09 + 0.35);
+            nOsc.connect(nGain);
+            nGain.connect(audioCtx.destination);
+            nOsc.start(now + idx * 0.09);
+            nOsc.stop(now + idx * 0.09 + 0.35);
+          });
+        }
+      } catch (e) {
+        // Audio error handling
+      }
+    }
+
+    // 4. 스테이지 로드 및 보드 생성
+    function changeDifficulty(diff) {
+      if (currentDifficulty === diff && tiles.length > 0) return;
+      currentDifficulty = diff;
+      currentStageIndex = 0;
+      updateDifficultyUI();
+      loadStage(diff, 0);
+    }
+
+    function selectDifficultyAndStage(diff, stageIdx) {
+      currentDifficulty = diff;
+      currentStageIndex = stageIdx;
+      updateDifficultyUI();
+      loadStage(diff, stageIdx);
+    }
+
+    function updateDifficultyUI() {
+      ['easy', 'medium', 'hard'].forEach(d => {
+        const card = document.getElementById(`diff-card-${d}`);
+        const btn = document.getElementById(`btn-diff-${d}`);
+        if (!card || !btn) return;
+
+        if (d === currentDifficulty) {
+          card.className = "flex flex-col items-center p-1.5 sm:p-2 bg-slate-900/90 rounded-2xl border-2 border-emerald-500/80 shadow-lg shadow-emerald-500/10 transition duration-200";
+          btn.className = "w-full py-1.5 px-0.5 text-xs sm:text-sm font-bold rounded-xl transition duration-150 flex flex-col items-center justify-center bg-emerald-500 text-slate-950 shadow-md";
+        } else {
+          card.className = "flex flex-col items-center p-1.5 sm:p-2 bg-slate-900/90 rounded-2xl border-2 border-slate-800 shadow-lg transition duration-200";
+          btn.className = "w-full py-1.5 px-0.5 text-xs sm:text-sm font-bold rounded-xl transition duration-150 flex flex-col items-center justify-center text-slate-300 hover:text-white hover:bg-slate-800/80";
+        }
+      });
+
+      // 숫자 버튼 노출 여부 및 하단 레이아웃 제어 (초급만 표시)
+      const actionContainer = document.getElementById('action-tools-container');
+      const toggleBtn = document.getElementById('btn-toggle-num');
+      if (currentDifficulty === 'easy') {
+        if (toggleBtn) toggleBtn.classList.remove('hidden');
+        if (actionContainer) {
+          actionContainer.classList.remove('grid-cols-1');
+          actionContainer.classList.add('grid-cols-2');
+        }
+      } else {
+        if (toggleBtn) toggleBtn.classList.add('hidden');
+        if (actionContainer) {
+          actionContainer.classList.remove('grid-cols-2');
+          actionContainer.classList.add('grid-cols-1');
+        }
+      }
+
+      renderStageDots();
+    }
+
+    function loadStage(diff, stageIdx) {
+      currentDifficulty = diff;
+      currentStageIndex = stageIdx;
+
+      // 난이도 변경 시 숫자 힌트 정책: 초급은 켜짐, 중급/고급은 꺼짐 강제
+      if (diff === 'easy') {
+        showNumbers = true;
+        const toggleTxt = document.getElementById('txt-num-toggle');
+        if (toggleTxt) toggleTxt.textContent = '숫자 끄기';
+      } else {
+        showNumbers = false;
+      }
+
+      const stageInfo = GHIBLI_STAGES[diff][stageIdx];
+      boardSize = stageInfo.size;
+
+      // 타이틀 업데이트
+      document.getElementById('movie-title-ko').textContent = stageInfo.titleKo;
+      document.getElementById('movie-title-sub').textContent = stageInfo.titleSub;
+      
+      // 상시 우측 원본 이미지 업데이트
+      const sideImg = document.getElementById('side-preview-img');
+      if (sideImg) sideImg.src = stageInfo.img;
+
+      // 타일 초기화 (0 ~ size*size - 1)
+      const totalTiles = boardSize * boardSize;
+      tiles = Array.from({ length: totalTiles }, (_, i) => i);
+      emptyIndex = totalTiles - 1;
+
+      // 100% 풀이가 보장되는 유효 셔플 (Solvable Shuffling)
+      shuffleSolvable();
+
+      moves = 0;
+      isGameWon = false;
+      document.getElementById('stat-moves').textContent = moves;
+
+      closeWinOverlay();
+      renderStageDots();
+      renderBoard();
+      startTimer();
+    }
+
+    // 풀이 가능한 셔플 알고리즘 (빈칸을 역방향으로 유효하게 랜덤 이동)
+    function shuffleSolvable() {
+      const totalMoves = boardSize * boardSize * 30; // 충분한 횟수로 무작위 슬라이드
+      let lastMove = -1;
+
+      for (let i = 0; i < totalMoves; i++) {
+        const neighbors = getValidNeighbors(emptyIndex);
+        // 직전 역방향 이동 방지하여 셔플 효과 극대화
+        const filtered = neighbors.filter(n => n !== lastMove);
+        const nextIdx = filtered.length > 0 ? filtered[Math.floor(Math.random() * filtered.length)] : neighbors[0];
+
+        // 타일 교환
+        tiles[emptyIndex] = tiles[nextIdx];
+        tiles[nextIdx] = boardSize * boardSize - 1;
+        lastMove = emptyIndex;
+        emptyIndex = nextIdx;
+      }
+    }
+
+    function getValidNeighbors(idx) {
+      const neighbors = [];
+      const r = Math.floor(idx / boardSize);
+      const c = idx % boardSize;
+
+      if (r > 0) neighbors.push(idx - boardSize); // 상
+      if (r < boardSize - 1) neighbors.push(idx + boardSize); // 하
+      if (c > 0) neighbors.push(idx - 1); // 좌
+      if (c < boardSize - 1) neighbors.push(idx + 1); // 우
+
+      return neighbors;
+    }
+
+    // 5. 보드 렌더링
+    function renderBoard() {
+      const container = document.getElementById('puzzle-grid');
+      container.innerHTML = '';
+
+      const totalTiles = boardSize * boardSize;
+      const stageInfo = GHIBLI_STAGES[currentDifficulty][currentStageIndex];
+      const imgUrl = stageInfo.img;
+
+      container.style.gridTemplateColumns = `repeat(${boardSize}, minmax(0, 1fr))`;
+      container.style.gridTemplateRows = `repeat(${boardSize}, minmax(0, 1fr))`;
+
+      const wrapper = document.querySelector('.puzzle-board-wrapper');
+      const boardWidthPx = wrapper.clientWidth - 16;
+      container.style.setProperty('--board-size', `${boardWidthPx}px`);
+
+      tiles.forEach((tileVal, currentIdx) => {
+        const tileDiv = document.createElement('div');
+        const isEmpty = (tileVal === totalTiles - 1);
+
+        if (isEmpty) {
+          tileDiv.className = 'w-full h-full rounded-xl tile-empty flex items-center justify-center select-none';
+        } else {
+          tileDiv.className = 'w-full h-full rounded-xl puzzle-tile border border-slate-700/60 shadow-md cursor-pointer relative overflow-hidden flex items-center justify-center';
+          tileDiv.style.backgroundImage = `url('${imgUrl}')`;
+
+          // 원본 이미지 내에서의 배경 위치 계산
+          const origR = Math.floor(tileVal / boardSize);
+          const origC = tileVal % boardSize;
+          const posX = (origC / (boardSize - 1)) * 100;
+          const posY = (origR / (boardSize - 1)) * 100;
+          tileDiv.style.backgroundPosition = `${posX}% ${posY}%`;
+
+          // 숫자 표시 레이어
+          if (showNumbers) {
+            const numSpan = document.createElement('span');
+            numSpan.className = 'tile-badge absolute bottom-1 right-1.5 px-1.5 py-0.5 rounded-md bg-slate-950/70 text-white font-chakra text-[10px] sm:text-xs font-bold border border-white/20';
+            numSpan.textContent = tileVal + 1;
+            tileDiv.appendChild(numSpan);
+          }
+
+          // 클릭/터치 이벤트 리스너
+          tileDiv.addEventListener('click', () => handleTileClick(currentIdx));
+        }
+
+        container.appendChild(tileDiv);
+      });
+    }
+
+    // 6. 타일 슬라이드 처리
+    function handleTileClick(clickedIdx) {
+      if (isGameWon) return;
+
+      const neighbors = getValidNeighbors(clickedIdx);
+      if (neighbors.includes(emptyIndex)) {
+        // 빈칸과 교환
+        tiles[emptyIndex] = tiles[clickedIdx];
+        tiles[clickedIdx] = boardSize * boardSize - 1;
+        emptyIndex = clickedIdx;
+
+        moves++;
+        document.getElementById('stat-moves').textContent = moves;
+        playSound('slide');
+
+        renderBoard();
+        checkVictory();
+      }
+    }
+
+    // 방향키 조작 (WASD / 화살표)
+    function handleKeyMove(dir) {
+      if (isGameWon) return;
+
+      const emptyR = Math.floor(emptyIndex / boardSize);
+      const emptyC = emptyIndex % boardSize;
+      let targetIdx = -1;
+
+      // 방향키는 '조각을 미는 방향' 또는 '빈칸의 반대 방향 조각을 끌어오는 방향'
+      if (dir === 'up' && emptyR < boardSize - 1) {
+        targetIdx = emptyIndex + boardSize; // 아래쪽 조각을 위로 이동
+      } else if (dir === 'down' && emptyR > 0) {
+        targetIdx = emptyIndex - boardSize; // 위쪽 조각을 아래로 이동
+      } else if (dir === 'left' && emptyC < boardSize - 1) {
+        targetIdx = emptyIndex + 1; // 오른쪽 조각을 왼쪽으로 이동
+      } else if (dir === 'right' && emptyC > 0) {
+        targetIdx = emptyIndex - 1; // 왼쪽 조각을 오른쪽으로 이동
+      }
+
+      if (targetIdx !== -1) {
+        handleTileClick(targetIdx);
+      }
+    }
+
+    // 7. 승리 판정
+    function checkVictory() {
+      const totalTiles = boardSize * boardSize;
+      const isComplete = tiles.every((val, idx) => val === idx);
+
+      if (isComplete) {
+        isGameWon = true;
+        stopTimer();
+        playSound('win');
+        if (window.confetti) {
+          confetti({ particleCount: 120, spread: 80, origin: { y: 0.6 } });
+        }
+        markStageCleared(currentDifficulty, currentStageIndex);
+
+        const timeStr = getFormattedTime();
+        let summary = `스테이지 ${currentStageIndex + 1} 완성: 총 ${moves}회 이동 / ${timeStr} 소요`;
+        if (currentLang !== 'ko' && translations[currentLang]) {
+          summary += ` (${translations[currentLang].win_summary_fmt(moves, timeStr)})`;
+        }
+        document.getElementById('win-summary').textContent = summary;
+
+        const nextStageTitle = document.getElementById('next-stage-title');
+        const winTitle = document.getElementById('win-title');
+
+        if (currentStageIndex + 1 < 3) {
+          winTitle.textContent = `스테이지 ${currentStageIndex + 1} 완성!`;
+          nextStageTitle.textContent = `다음 스테이지 (${currentStageIndex + 2}/3)`;
+        } else {
+          const diffLabels = { easy: '초급(3×3)', medium: '중급(4×4)', hard: '고급(5×5)' };
+          winTitle.textContent = `🎉 ${diffLabels[currentDifficulty]} 3개 작품 완전 정복!`;
+          nextStageTitle.textContent = `1단계로 돌아가기`;
+        }
+
+        const overlay = document.getElementById('win-overlay');
+        overlay.classList.remove('opacity-0', 'pointer-events-none', 'scale-95');
+        overlay.classList.add('opacity-100', 'pointer-events-auto', 'scale-100');
+      }
+    }
+
+    function handleNextStageClick() {
+      if (currentStageIndex + 1 < 3) {
+        loadStage(currentDifficulty, currentStageIndex + 1);
+      } else {
+        loadStage(currentDifficulty, 0);
+      }
+    }
+
+    function closeWinOverlay() {
+      const overlay = document.getElementById('win-overlay');
+      if (overlay) {
+        overlay.classList.add('opacity-0', 'pointer-events-none', 'scale-95');
+        overlay.classList.remove('opacity-100', 'pointer-events-auto', 'scale-100');
+      }
+    }
+
+    function restartStage() {
+      loadStage(currentDifficulty, currentStageIndex);
+    }
+
+    // 숫자 표시 토글
+    function toggleNumbers() {
+      showNumbers = !showNumbers;
+      document.getElementById('txt-num-toggle').textContent = showNumbers ? '숫자 끄기' : '숫자 켜기';
+      renderBoard();
+    }
+
+    // 8. 타이머 기능
+    function startTimer() {
+      clearInterval(timerInterval);
+      timer = 0;
+      updateTimerDisplay();
+      timerInterval = setInterval(() => {
+        timer++;
+        updateTimerDisplay();
+      }, 1000);
+    }
+
+    function stopTimer() {
+      clearInterval(timerInterval);
+    }
+
+    function getFormattedTime() {
+      const mins = String(Math.floor(timer / 60)).padStart(2, '0');
+      const secs = String(timer % 60).padStart(2, '0');
+      return `${mins}:${secs}`;
+    }
+
+    function updateTimerDisplay() {
+      document.getElementById('stat-time').textContent = getFormattedTime();
+    }
+
+    // 9. 로컬스토리지 저장 및 1~3번 인디케이터 (각 난이도별 3개씩)
+    function getClearedStages(diff) {
+      const saved = localStorage.getItem(`sliding_cleared_${diff}`);
+      return saved ? JSON.parse(saved) : [];
+    }
+
+    function markStageCleared(diff, idx) {
+      const cleared = getClearedStages(diff);
+      if (!cleared.includes(idx)) {
+        cleared.push(idx);
+        localStorage.setItem(`sliding_cleared_${diff}`, JSON.stringify(cleared));
+      }
+      renderStageDots();
+    }
+
+    function renderStageDots() {
+      ['easy', 'medium', 'hard'].forEach(diff => {
+        const container = document.getElementById(`stage-dots-${diff}`);
+        if (!container) return;
+        const cleared = getClearedStages(diff);
+        container.innerHTML = '';
+
+        for (let i = 0; i < 3; i++) {
+          const isCurrent = (diff === currentDifficulty && i === currentStageIndex);
+          const isCleared = cleared.includes(i);
+
+          const dotBtn = document.createElement('button');
+          dotBtn.onclick = (e) => {
+            e.stopPropagation();
+            selectDifficultyAndStage(diff, i);
+          };
+          dotBtn.title = `${diff} - Stage ${i + 1}`;
+
+          dotBtn.className = `flex-1 h-5 sm:h-6 max-w-[32px] rounded-full flex items-center justify-center font-bold text-[10px] sm:text-xs transition-all duration-200 cursor-pointer ${
+            isCurrent
+              ? 'ring-2 ring-emerald-400 ring-offset-1 ring-offset-slate-900 scale-105 z-10 '
+              : 'hover:scale-105 '
+          }${
+            isCleared
+              ? 'bg-gradient-to-tr from-emerald-500 to-teal-400 text-slate-950 shadow-md shadow-emerald-500/40'
+              : isCurrent
+                ? 'bg-emerald-950/80 text-emerald-200 border border-emerald-400/60'
+                : 'bg-slate-800/90 text-slate-500 border border-slate-700/60 hover:text-slate-300 hover:border-slate-500'
+          }`;
+
+          dotBtn.innerHTML = isCleared ? `
+            <svg class="w-2.5 h-2.5 sm:w-3 sm:h-3 text-slate-950 font-black stroke-[3.5]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"></path>
+            </svg>` : (i + 1);
+
+          container.appendChild(dotBtn);
+        }
+      });
+    }
+
+    // 10. 다국어 설정
+    function setLang(lang) {
+      currentLang = lang;
+
+      ['ko', 'en', 'zh', 'ru'].forEach(l => {
+        const btn = document.getElementById(`lang-${l}`);
+        if (l === lang) {
+          btn.className = "px-2.5 py-1 text-xs rounded-lg font-bold transition bg-emerald-500 text-slate-950 shadow";
+        } else {
+          btn.className = "px-2.5 py-1 text-xs rounded-lg font-bold transition text-slate-400 hover:text-white hover:bg-slate-800";
+        }
+      });
+
+      const subObj = document.getElementById('sub-objective');
+
+      if (lang === 'ko') {
+        subObj.textContent = '';
+        document.querySelectorAll('[data-i18n]').forEach(el => {
+          el.style.display = 'none';
+        });
+      } else {
+        const dict = translations[lang];
+        subObj.textContent = dict.subObjective;
+
+        document.querySelectorAll('[data-i18n]').forEach(el => {
+          el.style.display = '';
+          const key = el.getAttribute('data-i18n');
+          if (dict[key]) {
+            el.textContent = dict[key];
+          }
+        });
+      }
+    }
+
+    // 11. 튜토리얼 모달 로직
+    function openTutorialModal() {
+      const modal = document.getElementById('tutorial-modal');
+      modal.classList.remove('opacity-0', 'pointer-events-none');
+      modal.classList.add('opacity-100', 'pointer-events-auto');
+    }
+
+    function closeTutorialModal() {
+      const modal = document.getElementById('tutorial-modal');
+      modal.classList.add('opacity-0', 'pointer-events-none');
+      modal.classList.remove('opacity-100', 'pointer-events-auto');
+    }
+
+    // 12. 학생 로그인 인증
+    function checkStudentLogin() {
+      const savedStudent = localStorage.getItem('gwansan_student_info');
+      const loginModal = document.getElementById('login-modal');
+      if (savedStudent) {
+        try {
+          studentInfo = JSON.parse(savedStudent);
+          updateStudentUI();
+          loginModal.classList.add('hidden');
+        } catch (e) {
+          loginModal.classList.remove('hidden');
+        }
+      } else {
+        loginModal.classList.remove('hidden');
+      }
+    }
+
+    function handleStudentLogin(event) {
+      event.preventDefault();
+      const idInput = document.getElementById('input-student-id').value.trim();
+      const nameInput = document.getElementById('input-student-name').value.trim();
+      const errorMsg = document.getElementById('login-error-msg');
+
+      if (!idInput || !nameInput) {
+        errorMsg.textContent = '학번과 이름을 모두 입력해주세요.';
+        return;
+      }
+
+      studentInfo = { id: idInput, name: nameInput };
+      localStorage.setItem('gwansan_student_info', JSON.stringify(studentInfo));
+      updateStudentUI();
+      document.getElementById('login-modal').classList.add('hidden');
+    }
+
+    function updateStudentUI() {
+      const displaySpan = document.getElementById('student-info-display');
+      if (displaySpan && studentInfo.id && studentInfo.name) {
+        displaySpan.textContent = `${studentInfo.id} ${studentInfo.name}`;
+      }
+    }
+
+    function changeStudentInfo() {
+      const idInput = document.getElementById('input-student-id');
+      const nameInput = document.getElementById('input-student-name');
+      const errorMsg = document.getElementById('login-error-msg');
+      if (idInput) idInput.value = studentInfo.id || '';
+      if (nameInput) nameInput.value = studentInfo.name || '';
+      if (errorMsg) errorMsg.textContent = '';
+      document.getElementById('login-modal').classList.remove('hidden');
+    }
+
+    // 14. 키보드 컨트롤러 (화살표 & WASD)
+    window.addEventListener('keydown', (e) => {
+      const key = e.key.toLowerCase();
+      if (key === 'arrowup' || key === 'w') {
+        e.preventDefault();
+        handleKeyMove('up');
+      } else if (key === 'arrowdown' || key === 's') {
+        e.preventDefault();
+        handleKeyMove('down');
+      } else if (key === 'arrowleft' || key === 'a') {
+        e.preventDefault();
+        handleKeyMove('left');
+      } else if (key === 'arrowright' || key === 'd') {
+        e.preventDefault();
+        handleKeyMove('right');
+      } else if (key === 'r') {
+        e.preventDefault();
+        restartStage();
+      }
+    });
+
+    // 15. 모바일 스와이프 제스처 컨트롤러
+    let touchStartX = 0;
+    let touchStartY = 0;
+    const boardContainer = document.querySelector('.puzzle-board-wrapper');
+
+    boardContainer.addEventListener('touchstart', (e) => {
+      touchStartX = e.changedTouches[0].clientX;
+      touchStartY = e.changedTouches[0].clientY;
+    }, { passive: true });
+
+    boardContainer.addEventListener('touchend', (e) => {
+      const diffX = e.changedTouches[0].clientX - touchStartX;
+      const diffY = e.changedTouches[0].clientY - touchStartY;
+      const absX = Math.abs(diffX);
+      const absY = Math.abs(diffY);
+
+      if (Math.max(absX, absY) > 28) {
+        if (absX > absY) {
+          handleKeyMove(diffX > 0 ? 'right' : 'left');
+        } else {
+          handleKeyMove(diffY > 0 ? 'down' : 'up');
+        }
+      }
+    }, { passive: true });
+
+    // 화면 리사이즈 시 배경 크기 재연산
+    window.addEventListener('resize', () => {
+      const wrapper = document.querySelector('.puzzle-board-wrapper');
+      if (wrapper) {
+        const boardWidthPx = wrapper.clientWidth - 16;
+        document.getElementById('puzzle-grid').style.setProperty('--board-size', `${boardWidthPx}px`);
+      }
+    });
+
+    // Window Load 초기화
+    window.onload = function() {
+      checkStudentLogin();
+      setLang('en');
+      changeDifficulty('easy');
+    };
+  </script>
+</body>
+</html>
