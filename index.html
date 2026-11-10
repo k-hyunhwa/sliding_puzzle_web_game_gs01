@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>관산중학교 수학 퍼즐 - 지브리 슬라이딩 퍼즐 (Sliding Puzzle)</title>
+  <title>관산중학교 수학 퍼즐 -  슬라이딩 퍼즐 (Sliding Puzzle)</title>
   <!-- Tailwind CSS CDN -->
   <script src="https://cdn.tailwindcss.com"></script>
   <!-- Google Fonts -->
@@ -44,9 +44,26 @@
     .tile-badge {
       text-shadow: 0 1px 3px rgba(0, 0, 0, 0.9), 0 0 6px rgba(0, 0, 0, 0.7);
     }
+  
+    /* Custom Scrollbar for Ranking Panel */
+    .custom-scrollbar::-webkit-scrollbar {
+      width: 6px;
+    }
+    .custom-scrollbar::-webkit-scrollbar-track {
+      background: rgba(15, 23, 42, 0.6);
+      border-radius: 8px;
+    }
+    .custom-scrollbar::-webkit-scrollbar-thumb {
+      background: rgba(51, 65, 85, 0.8);
+      border-radius: 8px;
+    }
+    .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+      background: rgba(16, 185, 129, 0.7);
+    }
+
   </style>
 </head>
-<body class="bg-slate-950 text-slate-100 min-h-screen flex flex-col items-center justify-between p-2 sm:p-4 overflow-x-hidden selection:bg-emerald-500 selection:text-slate-950">
+<body class="bg-slate-950 text-slate-100 min-h-screen flex flex-col items-center justify-between p-2 sm:p-4 xl:pr-88 overflow-x-hidden selection:bg-emerald-500 selection:text-slate-950">
 
   <!-- 학생 정보 로그인/입장 초기 화면 모달 -->
   <div id="login-modal" class="fixed inset-0 bg-slate-950/95 backdrop-blur-md z-50 flex items-center justify-center p-4">
@@ -128,7 +145,7 @@
       SLIDING PUZZLE
     </h1>
     <div class="text-xs sm:text-sm text-slate-400 flex flex-col items-center justify-center">
-      <div>빈 칸을 이용하여 조각을 밀어 <span class="text-emerald-400 font-bold">지브리 명장면</span>을 완성하세요!</div>
+      <div>빈 칸을 이용하여 조각을 밀어 <span class="text-emerald-400 font-bold"> 그림</span>을 완성하세요!</div>
       <div id="sub-objective" class="text-[11px] sm:text-xs text-slate-500"></div>
     </div>
   </header>
@@ -287,6 +304,53 @@
 
   </main>
 
+  
+  <!-- 모바일/태블릿 전용 랭킹 열기 플로팅 버튼 (xl 미만에서만 표시) -->
+  <button onclick="toggleRankingDrawer()" id="btn-ranking-open" class="xl:hidden fixed bottom-4 right-4 z-40 px-3.5 py-2.5 rounded-full bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 font-black shadow-xl shadow-amber-500/30 flex items-center gap-1.5 active:scale-95 transition border border-amber-300/40">
+    <span class="text-base animate-bounce">🏆</span>
+    <span class="text-xs">실시간 랭킹 (Top 40)</span>
+  </button>
+
+  <!-- 모바일 배경 딤(Backdrop) 오버레이 -->
+  <div id="ranking-backdrop" onclick="toggleRankingDrawer(false)" class="fixed inset-0 bg-slate-950/75 backdrop-blur-sm z-40 hidden xl:hidden transition-opacity duration-300"></div>
+
+  <!-- 실시간 랭킹 패널 (PC/큰 화면: 기본 펼침 고정 / 모바일: 우측 슬라이드 인-아웃) -->
+  <aside id="ranking-panel" class="fixed top-0 right-0 h-full w-80 sm:w-88 bg-slate-900/95 border-l border-slate-800 shadow-2xl z-50 flex flex-col p-4 backdrop-blur-md transition-transform duration-300 ease-in-out translate-x-full xl:translate-x-0">
+    <!-- 패널 상단 헤더 -->
+    <div class="flex items-center justify-between pb-3 border-b border-slate-800">
+      <div class="flex items-center gap-2.5">
+        <div class="w-9 h-9 rounded-xl bg-gradient-to-br from-amber-400/20 to-amber-600/10 border border-amber-500/40 text-amber-400 flex items-center justify-center font-bold text-lg shadow-inner">🏆</div>
+        <div>
+          <h3 class="text-sm font-black text-white flex items-center gap-1.5 tracking-wide">
+            <span>실시간 명예의 전당</span>
+            <span class="text-[10px] px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 font-chakra font-bold">TOP 40</span>
+          </h3>
+          <p id="ranking-stage-label" class="text-[11px] text-slate-400 font-medium">초급 (3×3) - 1단계</p>
+        </div>
+      </div>
+      <div class="flex items-center gap-1">
+        <button onclick="fetchStageRanking()" title="새로고침" class="p-1.5 text-slate-400 hover:text-emerald-400 rounded-lg hover:bg-slate-800 transition active:rotate-180 duration-300">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+        </button>
+        <!-- 모바일 닫기 버튼 (xl 이상에서는 숨김) -->
+        <button onclick="toggleRankingDrawer(false)" class="xl:hidden p-1.5 text-slate-400 hover:text-white rounded-lg hover:bg-slate-800 transition">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+        </button>
+      </div>
+    </div>
+
+    <!-- 랭킹 목록 스크롤 뷰 -->
+    <div class="flex-1 overflow-y-auto py-2.5 pr-1 space-y-1.5 custom-scrollbar" id="ranking-list-container">
+      <div class="text-center py-10 text-xs text-slate-400 animate-pulse">랭킹 동기화 중...</div>
+    </div>
+
+    <!-- 패널 하단 기준 안내 -->
+    <div class="pt-2.5 border-t border-slate-800/80 text-[10px] text-slate-400 flex items-center justify-between">
+      <span>* 소요 시간 & 이동 수 순위</span>
+      <span class="text-emerald-400/90 font-mono">Google Cloud 연동</span>
+    </div>
+  </aside>
+
   <!-- Tutorial / How to Play Modal (게임 방법 및 튜토리얼) -->
   <div id="tutorial-modal" class="fixed inset-0 bg-slate-950/85 backdrop-blur-sm z-50 flex items-center justify-center p-4 opacity-0 pointer-events-none transition duration-200">
     <div class="bg-slate-900 border border-slate-700 rounded-3xl max-w-lg w-full p-6 text-slate-200 shadow-2xl relative max-h-[90vh] overflow-y-auto">
@@ -297,7 +361,7 @@
       <div class="flex items-center gap-2 mb-4">
         <div class="w-10 h-10 rounded-2xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center font-bold text-2xl">🧩</div>
         <div>
-          <h3 class="text-xl font-bold text-white leading-tight">지브리 슬라이딩 퍼즐 게임 방법</h3>
+          <h3 class="text-xl font-bold text-white leading-tight">슬라이딩 퍼즐 게임 방법</h3>
           <p class="text-xs text-emerald-300" data-i18n="modal_subtitle">Rules & Mathematical Strategies</p>
         </div>
       </div>
@@ -310,7 +374,7 @@
             <span class="text-xs font-normal text-emerald-300/80" data-i18n="tut_goal_title">Goal</span>
           </div>
           <p class="text-xs sm:text-sm mt-1.5 text-slate-200 leading-relaxed">
-            비어 있는 한 칸(오른쪽 아래 빈칸)을 활용해 타일들을 미끄러뜨려, 뒤섞인 <strong class="text-emerald-300">지브리 애니메이션 명장면</strong>과 <strong class="text-cyan-300">1번부터 순서대로 이어지는 숫자</strong>를 원상태로 맞추면 클리어됩니다!
+            비어 있는 한 칸(오른쪽 아래 빈칸)을 활용해 타일들을 미끄러뜨려, 뒤섞인 <strong class="text-emerald-300">애니메이션 명장면</strong>과 <strong class="text-cyan-300">1번부터 순서대로 이어지는 숫자</strong>를 원상태로 맞추면 클리어됩니다!
           </p>
           <p class="text-xs text-slate-400 mt-1" data-i18n="tut_goal_desc">
             Slide the tiles using the empty space to reconstruct the complete Ghibli poster image in numerical order.
@@ -444,7 +508,7 @@
       }
     };
 
-    // 2. 지브리 애니메이션 포스터 및 스테이지 정보 정의 (초급 3, 중급 3, 고급 3 = 총 9개 스테이지)
+    // 2. 애니메이션 포스터 및 스테이지 정보 정의 (초급 3, 중급 3, 고급 3 = 총 9개 스테이지)
     const GHIBLI_STAGES = {
       easy: [
         {
@@ -969,6 +1033,7 @@
       renderStageDots();
       renderBoard();
       startTimer();
+      fetchStageRanking();
     }
 
     // 풀이 가능한 셔플 알고리즘 (빈칸을 역방향으로 유효하게 랜덤 이동)
@@ -1104,6 +1169,7 @@
       if (isComplete) {
         isGameWon = true;
         stopTimer();
+        submitScoreToSheet();
         playSound('win');
         if (window.confetti) {
           confetti({ particleCount: 120, spread: 80, origin: { y: 0.6 } });
@@ -1338,6 +1404,162 @@
       if (nameInput) nameInput.value = studentInfo.name || '';
       if (errorMsg) errorMsg.textContent = '';
       document.getElementById('login-modal').classList.remove('hidden');
+    }
+
+    
+    // ==========================================
+    // 실시간 구글 스프레드시트 랭킹 시스템 연동
+    // ==========================================
+    const RANKING_API_URL = "https://script.google.com/macros/s/AKfycbwVIrIonYH6C2bAgyHDYmhczMYbdUfbZHWxvwwDN8R7ytCvLDBqYuhl_Sf-nBa-WhoO/exec";
+    let isRankingOpen = false;
+
+    // 모바일 랭킹 패널 슬라이드 토글
+    function toggleRankingDrawer(forceState) {
+      isRankingOpen = (typeof forceState === 'boolean') ? forceState : !isRankingOpen;
+      const panel = document.getElementById('ranking-panel');
+      const backdrop = document.getElementById('ranking-backdrop');
+      
+      if (!panel || !backdrop) return;
+      if (isRankingOpen) {
+        panel.classList.remove('translate-x-full');
+        backdrop.classList.remove('hidden');
+        fetchStageRanking();
+      } else {
+        panel.classList.add('translate-x-full');
+        backdrop.classList.add('hidden');
+      }
+    }
+
+    // 현재 스테이지 실시간 랭킹 가져오기 (GET)
+    async function fetchStageRanking() {
+      const container = document.getElementById('ranking-list-container');
+      const label = document.getElementById('ranking-stage-label');
+      if (!container) return;
+
+      const diffLabels = { easy: '초급(3×3)', medium: '중급(4×4)', hard: '고급(5×5)' };
+      if (label) {
+        label.textContent = `${diffLabels[currentDifficulty] || currentDifficulty} - ${currentStageIndex + 1}단계`;
+      }
+
+      container.innerHTML = `
+        <div class="flex flex-col items-center justify-center py-12 text-slate-400 gap-2">
+          <svg class="animate-spin h-5 w-5 text-emerald-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path>
+          </svg>
+          <span class="text-xs">실시간 순위 조회 중...</span>
+        </div>
+      `;
+
+      try {
+        const targetUrl = `${RANKING_API_URL}?difficulty=${currentDifficulty}&stage=${currentStageIndex + 1}&_t=${Date.now()}`;
+        const res = await fetch(targetUrl);
+        const data = await res.json();
+
+        if (data.status === 'success' && Array.isArray(data.ranking)) {
+          renderRankingList(data.ranking);
+        } else {
+          container.innerHTML = '<div class="text-center py-10 text-xs text-slate-500">기록이 없습니다. 첫 클리어에 도전하세요!</div>';
+        }
+      } catch (err) {
+        console.error('랭킹 로드 오류:', err);
+        container.innerHTML = `
+          <div class="text-center py-8 px-2 text-xs text-rose-400 space-y-2">
+            <p>랭킹을 불러오지 못했습니다.</p>
+            <button onclick="fetchStageRanking()" class="px-3 py-1 bg-slate-800 text-slate-300 rounded-lg hover:bg-slate-700 text-[11px]">다시 시도</button>
+          </div>
+        `;
+      }
+    }
+
+    // 랭킹 리스트 렌더링 (1~3등 특별 뱃지 및 최대 40위 표시)
+    function renderRankingList(list) {
+      const container = document.getElementById('ranking-list-container');
+      if (!container) return;
+      container.innerHTML = '';
+
+      if (!list || list.length === 0) {
+        container.innerHTML = `
+          <div class="text-center py-12 text-xs text-slate-400 flex flex-col items-center gap-1">
+            <span class="text-2xl">🌱</span>
+            <span>아직 등록된 기록이 없습니다.</span>
+            <span class="text-[10px] text-slate-500">퍼즐을 풀고 첫 랭커가 되어보세요!</span>
+          </div>
+        `;
+        return;
+      }
+
+      list.forEach((item, idx) => {
+        const rank = idx + 1;
+        let badgeStyle = "bg-slate-800/90 text-slate-400 border border-slate-700";
+        let rankIcon = rank;
+        let cardBg = "bg-slate-950/60 border-slate-800/70";
+
+        if (rank === 1) {
+          badgeStyle = "bg-gradient-to-r from-amber-400 to-yellow-500 text-slate-950 font-black shadow-md shadow-amber-400/30";
+          rankIcon = "🥇 1";
+          cardBg = "bg-amber-950/20 border-amber-500/40";
+        } else if (rank === 2) {
+          badgeStyle = "bg-gradient-to-r from-slate-200 to-slate-400 text-slate-950 font-black shadow-sm";
+          rankIcon = "🥈 2";
+          cardBg = "bg-slate-800/40 border-slate-600/40";
+        } else if (rank === 3) {
+          badgeStyle = "bg-gradient-to-r from-amber-600 to-amber-800 text-white font-bold shadow-sm";
+          rankIcon = "🥉 3";
+          cardBg = "bg-amber-950/15 border-amber-800/40";
+        }
+
+        const totalSecs = Math.max(0, parseInt(item.time, 10) || 0);
+        const mins = String(Math.floor(totalSecs / 60)).padStart(2, '0');
+        const secs = String(totalSecs % 60).padStart(2, '0');
+
+        const card = document.createElement('div');
+        card.className = `flex items-center justify-between p-2 rounded-xl border ${cardBg} hover:border-emerald-500/40 transition duration-150`;
+        card.innerHTML = `
+          <div class="flex items-center gap-2 min-w-0">
+            <span class="px-2 py-0.5 rounded-lg ${badgeStyle} text-[11px] font-chakra font-bold shrink-0 flex items-center justify-center">${rankIcon}</span>
+            <div class="text-left truncate">
+              <div class="text-xs font-bold text-slate-200 truncate flex items-center gap-1">
+                <span>${item.name}</span>
+                <span class="text-[10px] text-slate-400 font-mono font-normal">(${item.studentId})</span>
+              </div>
+              <div class="text-[10px] text-slate-400 font-chakra">${item.moves} Moves</div>
+            </div>
+          </div>
+          <div class="text-right shrink-0 font-chakra">
+            <div class="text-xs font-bold text-cyan-400">${mins}:${secs}</div>
+          </div>
+        `;
+        container.appendChild(card);
+      });
+    }
+
+    // 스테이지 클리어 시 구글 스프레드시트로 점수 전송 (POST)
+    async function submitScoreToSheet() {
+      if (!RANKING_API_URL) return;
+      if (!studentInfo || !studentInfo.id || !studentInfo.name) return;
+
+      const payload = {
+        difficulty: currentDifficulty,
+        stage: currentStageIndex + 1,
+        studentId: studentInfo.id,
+        studentName: studentInfo.name,
+        moves: moves,
+        time: timer
+      };
+
+      try {
+        await fetch(RANKING_API_URL, {
+          method: "POST",
+          mode: "no-cors",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload)
+        });
+        // 저장 처리 후 최신 랭킹 자동 리프레시
+        setTimeout(fetchStageRanking, 1300);
+      } catch (err) {
+        console.error("점수 전송 에러:", err);
+      }
     }
 
     // 14. 키보드 컨트롤러 (화살표 & WASD)
